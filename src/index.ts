@@ -13,3 +13,5 @@ export * from './text.js';
 export * from './types.js';
 export * from './casting-error.js';
 export * from './date.js';
+export * from './deserialize.js';
+
