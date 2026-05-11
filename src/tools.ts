@@ -11,5 +11,6 @@ export const hasOwn = <
 >(
   obj: T,
   key: K,
-): obj is T & Record<K, T[K] & {}> => // eslint-disable-line @typescript-eslint/ban-types
+): obj is T & Record<K, T[K] & {}> =>
+  // eslint-disable-line @typescript-eslint/ban-types
   Object.prototype.hasOwnProperty.call(obj, key);
