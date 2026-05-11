@@ -47,6 +47,21 @@
       "types": "./lib/index.d.ts",
       "import": "./esm/index.js",
       "require": "./lib/index.js"
+    },
+    "./validators": {
+      "types": "./lib/validators.d.ts",
+      "import": "./esm/validators.js",
+      "require": "./lib/validators.js"
+    },
+    "./envs": {
+      "types": "./lib/envs/index.d.ts",
+      "import": "./esm/envs/index.js",
+      "require": "./lib/envs/index.js"
+    },
+    "./pki": {
+      "types": "./lib/pki/index.d.ts",
+      "import": "./esm/pki/index.js",
+      "require": "./lib/pki/index.js"
     }
   },
   "typesVersions": {
@@ -59,7 +74,9 @@
   "files": [
     "lib",
     "esm",
-    "dist"
+    "dist",
+    "src/envs/README.md",
+    "src/pki/README.md"
   ],
   "optionalDependencies": {
     "resultage": "^0.7.0 || ^0.8.0"
