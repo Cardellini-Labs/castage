@@ -1,6 +1,6 @@
 {
   "name": "castage",
-  "version": "2.0.3",
+  "version": "2.1.0",
   "description": "A type-safe library for dynamic object casting and ensuring type consistency in JavaScript/TypeScript.",
   "scripts": {
     "test": "jest",
