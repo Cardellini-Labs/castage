@@ -254,6 +254,26 @@ type Command = CastedBy<typeof Command>; // "start" | "stop" | string
 
 `OkType<typeof caster>` is also exported for code that works directly with `CasterFn` values.
 
+### Generating Casters From TypeScript
+
+Use `castage/ts` to generate Castage schemas from existing `.ts` or `.d.ts`
+interfaces, type aliases, and enums:
+
+```ts
+import { writeFileSync } from 'node:fs';
+import { generateFile } from 'castage/ts';
+
+writeFileSync(
+  './models.casters.ts',
+  generateFile('./models.d.ts', { types: ['User'] }),
+);
+```
+
+The generator resolves imported types and concrete generic instantiations and
+uses `ref` for recursive schemas. Install `typescript` to use it; generated
+casters only depend on `castage`. See [src/ts/README.md](src/ts/README.md) for
+the source-text API, options, and supported types.
+
 ## Refinements With Validators
 
 `.validate(predicate, name?)` adds an extra rule after the base caster succeeds. The dedicated `castage/validators` entrypoint provides common reusable predicates; these helpers are intentionally not exported from the main `castage` entrypoint.
