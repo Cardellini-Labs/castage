@@ -80,13 +80,13 @@ const parse =
 
 export const struct = <T extends Record<PropertyKey, any>>(
   casters: { [K in keyof T]: Caster<T[K]> },
-  name = defaultStructName(casters),
+  name?: string,
 ): Caster<UndefinedAsOptional<T>> & Schema<{ [K in keyof T]: Caster<T[K]> }> =>
   Object.defineProperties(
     fromGuardAndTransform(
       isObject,
       transform(casters),
-      name,
+      name ?? (() => defaultStructName(casters)),
       ERR_INVALID_VALUE_TYPE,
       parse(casters),
     ) as Caster<T> & Schema<{ [K in keyof T]: Caster<T[K]> }>,

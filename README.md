@@ -132,6 +132,54 @@ const UnknownResponses = record(text.int, unknown);
 
 Use `nonEmptyArray(caster)` when the array must contain at least one item.
 
+### Deferred and Recursive References
+
+Use `ref(() => caster, name?)` when a caster refers to itself or to another caster
+declared later. Wrap the smallest reference that needs to be deferred, keeping
+the surrounding `struct` and `array` outside `ref`:
+
+```ts
+import { array, ref, string, struct, type Caster } from 'castage';
+
+interface Comment {
+  text: string;
+  replies: Comment[];
+}
+
+const Comment: Caster<Comment> = struct(
+  {
+    text: string,
+    replies: array(ref(() => Comment)),
+  },
+  'Comment',
+);
+
+const result = Comment({
+  text: 'First comment',
+  replies: [{ text: 'A reply', replies: [] }],
+});
+```
+
+Recursive casters need an explicit TypeScript type annotation. Name the recursive
+schema itself, as above; `ref` inherits the target caster's name when its own name
+is omitted. You can also derive optional or nullable references with
+`ref(() => Target).optional` and `ref(() => Target).nullable`.
+
+For a forward reference, place `ref` on the field that needs it:
+
+```ts
+const Message = struct({
+  sender: ref(() => User),
+});
+
+const User = struct({ name: string }, 'User');
+```
+
+Creating a reference does not call its callback. The target is resolved once on
+the first cast, `.parse()` call, or inherited-name lookup, then cached. The target
+must be initialized before that happens. Casting and `.parse()` preserve the
+target's results, transformations, and error paths.
+
 ### Unions and Intersections
 
 Use `oneOf(...)` when several shapes are accepted, and `allOf(...)` when multiple object casters should all apply and merge.
@@ -387,6 +435,7 @@ interface Caster<T> {
 - `tuple(...casters)`
 - `struct(casters, name?)`
 - `record(keyCaster, valueCaster, name?)`
+- `ref(() => caster, name?)`
 - `oneOf(...casters)`
 - `allOf(...casters)`
 - `value(value)`

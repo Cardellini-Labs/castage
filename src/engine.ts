@@ -11,82 +11,109 @@ import {
 
 import { replaceExpected, castingErr, castErr } from './casting-error.js';
 
+type CasterName = string | (() => string);
+
 export const casterApi = <T>(
   casterFn: CasterFn<T>,
-  name: string = casterFn.name,
+  name: CasterName = casterFn.name,
   parser?: ParserFn<T>,
-): Caster<T> =>
-  Object.defineProperties(casterFn.bind(null) as Caster<T>, {
-    name: {
-      enumerable: true,
-      value: name,
-      writable: false,
-    },
+): Caster<T> => {
+  const caster = casterFn.bind(null) as Caster<T>;
+
+  return Object.defineProperties(caster, {
+    name:
+      typeof name === 'string'
+        ? { enumerable: true, value: name, writable: false }
+        : {
+            enumerable: true,
+            configurable: true,
+            get: () => {
+              const value = name();
+              Object.defineProperty(caster, 'name', { value, writable: false });
+              return value;
+            },
+          },
 
     nullable: {
       enumerable: true,
       get: () => {
-        const expected = `${name} | null`;
-        return casterApi(
+        const nullable: Caster<T | null> = casterApi(
           (
             value: unknown,
             path: string[] = [],
           ): Result<T | null, CastingError> =>
             value === null
               ? ok(null)
-              : casterFn(value, path).mapErr(replaceExpected(expected, path)),
-          expected,
+              : casterFn(value, path).mapErr((error) =>
+                  replaceExpected(nullable.name, path)(error),
+                ),
+          () => `${caster.name} | null`,
         );
+        return nullable;
       },
     },
 
     optional: {
       enumerable: true,
       get: () => {
-        const expected = `${name} | undefined`;
-        return casterApi(
+        const optional: Caster<T | undefined> = casterApi(
           (
             value: unknown,
             path: string[] = [],
           ): Result<T | undefined, CastingError> =>
             value === undefined
               ? ok(undefined)
-              : casterFn(value, path).mapErr(replaceExpected(expected, path)),
-          expected,
+              : casterFn(value, path).mapErr((error) =>
+                  replaceExpected(optional.name, path)(error),
+                ),
+          () => `${caster.name} | undefined`,
         );
+        return optional;
       },
     },
 
     default: {
       enumerable: true,
-      value: (value: T, typeName: string = `${name} | undefined`): Caster<T> =>
-        casterApi(
+      value: (
+        value: T,
+        typeName: CasterName = () => `${caster.name} | undefined`,
+      ): Caster<T> => {
+        const defaultCaster: Caster<T> = casterApi(
           (data: unknown, path: string[] = []): Result<T, CastingError> =>
             data === undefined
               ? ok(value)
-              : casterFn(data, path).mapErr(replaceExpected(typeName, path)),
+              : casterFn(data, path).mapErr((error) =>
+                  replaceExpected(defaultCaster.name, path)(error),
+                ),
           typeName,
-        ),
+        );
+        return defaultCaster;
+      },
     },
 
     validate: {
       enumerable: true,
       value: <S extends T>(
         predicate: (value: T) => value is S,
-        ruleName: string = predicate.name || name,
-        error: (value: T, path: string[]) => CastingError = (value, path) =>
-          castingErr(ERR_INVALID_VALUE, path, {
-            expected: ruleName,
-            received: value,
-          }),
-      ) =>
-        casterApi(
+        ruleName: CasterName = predicate.name || (() => caster.name),
+        error?: (value: T, path: string[]) => CastingError,
+      ) => {
+        const validated: Caster<S> = casterApi(
           (value: unknown, path: string[] = []): Result<S, CastingError> =>
             casterFn(value, path).chain(
-              expect(predicate, (data) => error(data, path)),
+              expect(predicate, (data) =>
+                error
+                  ? error(data, path)
+                  : castingErr(ERR_INVALID_VALUE, path, {
+                      expected: validated.name,
+                      received: data,
+                    }),
+              ),
             ),
           ruleName,
-        ),
+        );
+        return validated;
+      },
     },
 
     unpack: {
@@ -125,7 +152,7 @@ export const casterApi = <T>(
       enumerable: true,
       value: <S>(
         transform: (data: T) => S,
-        typeName: string = `(${name} |> ${transform.name})`,
+        typeName: CasterName = () => `(${caster.name} |> ${transform.name})`,
       ): Caster<S> =>
         casterApi(
           (value: unknown, path: string[] = []) =>
@@ -137,15 +164,15 @@ export const casterApi = <T>(
     chain: {
       enumerable: true,
       value: <S>(
-        caster: (data: T, path: string[]) => Result<S, CastingError>,
-        typeName: string = `(${name} |> ${caster.name})`,
+        nextCaster: (data: T, path: string[]) => Result<S, CastingError>,
+        typeName: CasterName = () => `(${caster.name} |> ${nextCaster.name})`,
       ): Caster<S> =>
         casterApi(
           (value: unknown, path: string[] = []) =>
             casterFn(value, path).chain((data) =>
-              caster(data, [
+              nextCaster(data, [
                 ...path.slice(0, -1),
-                `${path.at(-1) || ''}::${name}`,
+                `${path.at(-1) || ''}::${caster.name}`,
               ]),
             ),
           typeName,
@@ -170,6 +197,7 @@ export const casterApi = <T>(
       },
     },
   });
+};
 
 export const fromGuard = <T>(
   guard: (value: any) => value is T,
@@ -187,15 +215,18 @@ export const fromGuard = <T>(
 export const fromGuardAndTransform = <T, S>(
   guard: (value: any) => value is T,
   transform: (value: T, path: string[]) => Result<S, CastingError>,
-  name: string = transform.name,
+  name: CasterName = transform.name,
   errorCode: CastingErrorCode = ERR_INVALID_VALUE_TYPE,
   parser?: (value: T, path: string[]) => Result<S, CastingError[]>,
-): Caster<S> =>
-  casterApi(
+): Caster<S> => {
+  const caster: Caster<S> = casterApi(
     (value, path = []) =>
       guard(value)
         ? transform(value, path)
-        : castErr(errorCode, path, { expected: name, received: value }),
+        : castErr(errorCode, path, {
+            expected: caster.name,
+            received: value,
+          }),
     name,
     parser !== undefined
       ? (value, path = []) =>
@@ -203,12 +234,14 @@ export const fromGuardAndTransform = <T, S>(
             ? parser(value, path)
             : err([
                 castingErr(errorCode, path, {
-                  expected: name,
+                  expected: caster.name,
                   received: value,
                 }),
               ])
       : undefined,
   );
+  return caster;
+};
 
 export const is =
   <T>(caster: CasterFn<T>) =>

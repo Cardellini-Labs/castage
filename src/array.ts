@@ -9,10 +9,7 @@ import {
 } from './types.js';
 import { isArray } from './predicates.js';
 
-export const array = <T>(
-  caster: Caster<T>,
-  name = `Array<${caster.name}>`,
-): Caster<T[]> =>
+export const array = <T>(caster: Caster<T>, name?: string): Caster<T[]> =>
   fromGuardAndTransform(
     (value): value is T[] => isArray(value),
     (list, path) => {
@@ -28,7 +25,7 @@ export const array = <T>(
 
       return ok(items);
     },
-    name,
+    name ?? (() => `Array<${caster.name}>`),
     ERR_INVALID_VALUE_TYPE,
     (list, path) => {
       const items: T[] = [];
