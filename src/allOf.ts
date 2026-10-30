@@ -807,7 +807,7 @@ export const allOf: {
     [K in keyof T]: Caster<T[K]>;
   }
 ): Caster<UnionToIntersection<T[number]>> => {
-  const name = `(${casters.map((c) => c.name).join(' & ')})`;
+  const name = () => `(${casters.map((c) => c.name).join(' & ')})`;
 
   return fromGuardAndTransform(
     isObject,

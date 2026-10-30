@@ -12,7 +12,7 @@ export const oneOf = <T extends unknown[]>(
     [K in keyof T]: CasterFn<T[K]>;
   }
 ): Caster<T[number]> => {
-  const name = `(${casters.map((c) => c.name).join(' | ')})`;
+  const name = () => `(${casters.map((c) => c.name).join(' | ')})`;
 
   return fromGuardAndTransform(
     (value): value is unknown => true,
@@ -26,7 +26,7 @@ export const oneOf = <T extends unknown[]>(
       }
 
       return castErr(ERR_INVALID_VALUE_TYPE, path, {
-        expected: name,
+        expected: name(),
         received: value,
         causes: errors,
       });
