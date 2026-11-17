@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { err, ok } from 'resultage';
-import { number, string } from './primitives';
+import { number, string, unknown } from './primitives';
 import { values } from './values';
 import { record } from './record';
 import { castErr, castingErr } from './casting-error';
@@ -156,3 +156,51 @@ describe('record.parse', () => {
     expect(recordType.parse(value, [])).toEqual(err(expected));
   });
 });
+
+describe.each(['cast', 'parse'] as const)(
+  'record %s prototype safety',
+  (mode) => {
+    it.each([
+      '{"__proto__":{"admin":true},"name":"Ada"}',
+      '{"__proto__":null,"name":"Ada"}',
+      '{"__proto__":"text","name":"Ada"}',
+    ])('preserves __proto__ as an own data property for %s', (json) => {
+      const input = JSON.parse(json);
+      const caster = record(string, unknown);
+      const output = (
+        mode === 'cast' ? caster(input) : caster.parse(input)
+      ).unwrap();
+
+      expect(Object.getPrototypeOf(output)).toBe(Object.prototype);
+      expect(Object.getOwnPropertyDescriptor(output, '__proto__')).toEqual({
+        value: input['__proto__'],
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+      expect(output.admin).toBeUndefined();
+      expect(output.name).toBe('Ada');
+      expect(JSON.stringify(output)).toBe(json);
+    });
+
+    it('safely stores keys transformed to __proto__', () => {
+      const caster = record(
+        string.map(() => '__proto__'),
+        unknown,
+      );
+      const input = { key: { admin: true } };
+      const output = (
+        mode === 'cast' ? caster(input) : caster.parse(input)
+      ).unwrap();
+
+      expect(Object.getPrototypeOf(output)).toBe(Object.prototype);
+      expect(Object.getOwnPropertyDescriptor(output, '__proto__')).toEqual({
+        value: input.key,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+      expect(output.admin).toBeUndefined();
+    });
+  },
+);

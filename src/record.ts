@@ -30,7 +30,12 @@ const transform =
 
       if (valueResult.isErr) return valueResult;
 
-      result[keyResult.value] = valueResult.value;
+      Object.defineProperty(result, keyResult.value, {
+        value: valueResult.value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
     }
 
     return ok(result);
@@ -65,7 +70,12 @@ const parse =
         continue;
       }
 
-      result[keyResult.value] = valueResult.value;
+      Object.defineProperty(result, keyResult.value, {
+        value: valueResult.value,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
     }
 
     return errors.length === 0 ? ok(result) : err(errors);
